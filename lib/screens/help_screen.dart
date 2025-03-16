@@ -3,7 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});
-  final String githubUrl = "https://github.com/yangxinglei";
+  final String githubUrl = "https://github.com/yangxinglei/lantransmission/discussions/categories/general";
   // 打开网页的方法
   Future<void> _launchURL() async {
     final Uri url = Uri.parse(githubUrl);
