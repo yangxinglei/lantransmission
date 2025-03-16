@@ -36,7 +36,7 @@ A tool for sending files and messages on a local area network
 
 ## 技术架构
 - 前端：Dart + Flutter
-- 后端：FastAPI (TCP 文件传输)
+- TCP 文件传输
 - 数据存储：SharedPreferences (本地配置存储)
 
 ## 平台支持
