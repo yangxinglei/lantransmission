@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 访问应用私有目录 -->
+    <external-path
+        name="external_files"
+        path="Android/data/com.example.lantransmission/files/" />
+    <!-- 访问公共下载目录 -->
+    <external-path
+        name="downloads"
+        path="Download/" />
+    <!-- 允许访问应用私有目录 -->
+    <external-path
+        name="private_downloads"
+        path="Android/data/com.example.lantransmission/files/downloads/" />
+</paths>
