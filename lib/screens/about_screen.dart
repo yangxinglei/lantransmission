@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 class AboutScreen extends StatelessWidget {
-  static String softwareVersion = "V1.0.0";
+  static String softwareVersion = "V1.0.1";
   final String donateUrl = "https://yangxinglei.github.io/donate";
   const AboutScreen({super.key});
   // 打开网页的方法
@@ -11,6 +12,7 @@ class AboutScreen extends StatelessWidget {
       throw Exception("无法打开 $urlname");
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -21,9 +23,15 @@ class AboutScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min, // ✅ **让窗口高度适应内容**
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('关于', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text(
+              '关于',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 10),
-            const Text('软件名称: 局域网传输', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              '软件名称: 局域网传输',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 5),
             Text('版本号: $softwareVersion', style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 10),

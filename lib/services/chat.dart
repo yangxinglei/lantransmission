@@ -4,20 +4,19 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import '../screens/settings_screen.dart';
 
-
-class ChatLogger extends ChangeNotifier{
+class ChatLogger extends ChangeNotifier {
   static final String logDirectory = "chat_logs"; // 聊天记录存储路径
   static String receivedFilesDirectory = ""; // 接收文件存储路径
-  ChatLogger(){
-
+  ChatLogger() {
     initparameters();
-    SettingsManager().addListener(initparameters);  // 监听 SettingsManager 变化
+    SettingsManager().addListener(initparameters); // 监听 SettingsManager 变化
   }
-  
+
   Future<void> initparameters() async {
     receivedFilesDirectory = await SettingsScreen.getSavePath();
-    notifyListeners();  // 触发 UI 更新
+    notifyListeners(); // 触发 UI 更新
   }
+
   // 确保目录存在
   static Future<String> _ensureDirectoryExists(String directory) async {
     final appDir = await getApplicationDirectory();

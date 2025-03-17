@@ -121,13 +121,13 @@ class CustomDialogState extends State<CustomDialog> with SingleTickerProviderSta
 } */
 
 import 'package:flutter/material.dart';
+import 'package:lantransmission/screens/ipselector_screen.dart';
 
 import 'dart:io';
 import 'help_screen.dart';
 import 'about_screen.dart';
 import 'settings_screen.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 
 class AppMenuBar extends StatelessWidget {
   const AppMenuBar({super.key});
@@ -142,7 +142,7 @@ class AppMenuBar extends StatelessWidget {
         Process.run('open', [savedPath]);
       } else if (Platform.isLinux) {
         Process.run('xdg-open', [savedPath]);
-      } 
+      }
     } catch (e) {
       Fluttertoast.showToast(msg: "无法打开文件夹，请手动前往目录");
     }
@@ -288,6 +288,10 @@ class AppMenuBar extends StatelessWidget {
                         icon: const Icon(Icons.info_outline),
                         label: const Text('关于'),
                       ),
+                      const Spacer(), // ✅ 将 IP 下拉菜单靠右显示
+                      const Text('选择本机 IP:   '), // ✅ 添加文本提示
+                      const IPSelector(),
+                      const SizedBox(width: 20), // 间距
                     ],
                   ),
         );

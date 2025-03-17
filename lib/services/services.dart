@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:logger/logger.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/chat.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter/material.dart';
@@ -30,7 +31,7 @@ class Services extends ChangeNotifier {
 
   static Stream<void> get chatUpdateStream => _chatUpdateController.stream;
   static String sendfileState = "ready";
-  
+
   static void notifyChatUpdated() {
     _chatUpdateController.add(null); // 发送通知
   }
@@ -76,15 +77,58 @@ class Services extends ChangeNotifier {
 
   /// 获取本机正确的局域网 IP
   static Future<String?> getLocalIP() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> ipList = [];
+
     for (var interface in await NetworkInterface.list()) {
       for (var addr in interface.addresses) {
-        if (addr.type == InternetAddressType.IPv4) {
-          //&&(addr.address.startsWith('192.168.'))) {
-          return addr.address; // 只返回局域网 IP
+        if (addr.type == InternetAddressType.IPv4 &&
+            (addr.address.startsWith('192.') ||
+                addr.address.startsWith('10.') ||
+                addr.address.startsWith('172.'))) {
+          ipList.add(addr.address);
         }
-      }/*  */
+      }
     }
-    return null;
+    if (prefs.getString('localIP') != null) {
+      return prefs.getString('localIP');
+    } else {
+      String? defaultIp;
+      for (var ip in ipList) {
+        if (ip.startsWith('192.168')) {
+          defaultIp = ip;
+          break; // 找到符合条件的第一个 IP，直接退出循环
+        }
+      }
+
+      if (defaultIp == null) {
+        for (var ip in ipList) {
+          if (ip.startsWith('192.')) {
+            defaultIp = ip;
+            break;
+          }
+        }
+      }
+
+      if (defaultIp == null) {
+        for (var ip in ipList) {
+          if (ip.startsWith('10.')) {
+            defaultIp = ip;
+            break;
+          }
+        }
+      }
+
+      if (defaultIp == null) {
+        for (var ip in ipList) {
+          if (ip.startsWith('172.')) {
+            defaultIp = ip;
+            break;
+          }
+        }
+      }
+      return defaultIp;
+    }
   }
 
   static void addLog(String log) {
@@ -111,7 +155,6 @@ class Services extends ChangeNotifier {
         return;
       }
     }
-
 
     String computerName = await SettingsScreen.getDeviceName();
     var jsonMessage = jsonEncode({
@@ -187,6 +230,7 @@ class Services extends ChangeNotifier {
   static Future<void> restartBroadcastAndListen() async {
     await stopBroadcastAndListen();
     listenForDeviceBroadcasts();
+    addLog("广播和监听服务已重启");
   }
 
   /// **清理离线设备**
@@ -274,13 +318,13 @@ class Services extends ChangeNotifier {
               addLog("❌ 错误：fileSink 为空，文件接收异常");
               return;
             }
-            
+
             fileSink?.add(data);
             //await fileSink?.flush(); // 确保数据写入文件
             receivedBytes += data.length;
             // ✅ 计算进度和速度
             double progress = (receivedBytes / expectedFileSize) * 100;
-            
+
             // ✅ 实时更新进度条
             logIndex = deviceState.logNotifier.value.length - 1;
             deviceState.logNotifier.value = List.from(
@@ -310,13 +354,11 @@ class Services extends ChangeNotifier {
           if (receivedBytes < expectedFileSize) {
             addLog("❌ 文件接收不完整: $fileName$receivedBytes");
           }
-          
+
           logger.i("📴 连接关闭");
           addLog("📴 连接关闭");
           client.destroy();
           activeConnections.remove(clientIp); // 连接断开时移除
-        
-
         },
         onError: (error) {
           addLog("❌ 连接错误: $error");
@@ -340,6 +382,7 @@ class Services extends ChangeNotifier {
   static Future<void> restartTcpServer() async {
     await stopTcpServer();
     await startTcpServer();
+    addLog("TCP服务已重启");
   }
 
   /// 连接到设备
@@ -411,13 +454,13 @@ class Services extends ChangeNotifier {
               addLog("❌ 错误：fileSink 为空，文件接收异常");
               return;
             }
-        
+
             socketfileSink?.add(data);
             //await socketfileSink?.flush(); // 确保数据写入文件
             socketreceivedBytes += data.length;
             // ✅ 计算进度和速度
             double progress = (socketreceivedBytes / expectedFileSize) * 100;
-          
+
             // ✅ 实时更新进度条
             logIndex = deviceState.logNotifier.value.length - 1;
             deviceState.logNotifier.value = List.from(

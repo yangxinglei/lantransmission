@@ -7,7 +7,7 @@ import 'device_list.dart';
 import 'chat_screen.dart';
 import 'settings_screen.dart';
 import 'log_panel.dart';
-import 'appmenubar.dart';
+import 'app_menubar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -55,15 +55,13 @@ class DesktopLayout extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: DeviceList(
-                    onDeviceSelected: (deviceIp,isneedconnect) async {
-                      if(isneedconnect){
-                            Services.connectToDevice(
-                        deviceIp,
-                        await SettingsScreen.getCommunicationPort(),
-                      );
-
+                    onDeviceSelected: (deviceIp, isneedconnect) async {
+                      if (isneedconnect) {
+                        Services.connectToDevice(
+                          deviceIp,
+                          await SettingsScreen.getCommunicationPort(),
+                        );
                       }
-                      
                     },
                     onDisconnect: (deviceIp) {
                       deviceState.selectDevice(null);
@@ -125,17 +123,16 @@ class MobileLayoutState extends State<MobileLayout> {
 
     _pages = [
       DeviceList(
-        onDeviceSelected: (device,isneedconnect) async {
+        onDeviceSelected: (device, isneedconnect) async {
           setState(() {
             _isDeviceSelected = true;
           });
-          if(isneedconnect){
-              Services.connectToDevice(
-            device,
-            await SettingsScreen.getCommunicationPort(),
-          );
+          if (isneedconnect) {
+            Services.connectToDevice(
+              device,
+              await SettingsScreen.getCommunicationPort(),
+            );
           }
-          
         },
         onDisconnect: (device) {
           setState(() {

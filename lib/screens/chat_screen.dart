@@ -60,7 +60,6 @@ class ChatScreenState extends State<ChatScreen> {
           _loadChatLog();
           setState(() {}); // 强制刷新 UI
         }
-        
       });
     });
 
@@ -133,9 +132,10 @@ class ChatScreenState extends State<ChatScreen> {
 
   void _scrollToBottom() {
     Future.delayed(Duration(milliseconds: 300), () {
-       if (mounted && _scrollController.hasClients) { // 添加检查
-      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-    }
+      if (mounted && _scrollController.hasClients) {
+        // 添加检查
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
     });
   }
 
