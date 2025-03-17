@@ -1,7 +1,7 @@
 # lantransmission
 A tool for sending files and messages on a local area network
 
-# 局域网文件传输与即时通讯工具
+# 局域网跨平台文件传输与即时通讯工具
 
 ## 概述
 本项目是一款基于 Dart + Flutter 开发的跨平台（Windows、macOS、Linux、Android、iOS）局域网文件传输与即时通讯工具。通过局域网通信，无需依赖互联网即可实现高效、快速的文件传输和文本消息交流。
