@@ -1,0 +1,122 @@
+name: Flutter Multi-Platform Release
+
+on:
+  push:
+    tags:
+      - 'v*' # 通过语义化版本标签触发（如 v1.2.3）
+  workflow_dispatch: # 允许手动触发
+
+env:
+  FLUTTER_VERSION: '3.22.1'
+  BUILD_DIR: 'build_artifacts'
+
+jobs:
+  build:
+    name: Cross-Platform Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platforms: android, web, linux, windows
+          - os: macos-latest
+            platforms: ios, macos
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+          cache-key: flutter-${{ env.FLUTTER_VERSION }}
+          platforms: ${{ join(matrix.platforms, ',') }}
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      # Android 构建
+      - name: Build Android APK
+        if: contains(matrix.platforms, 'android')
+        run: |
+          flutter build apk --release
+          mkdir -p ${{ env.BUILD_DIR }}
+          mv build/app/outputs/flutter-apk/app-release.apk ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}.apk
+
+      # iOS 构建（需签名配置）
+      - name: Build iOS IPA
+        if: contains(matrix.platforms, 'ios')
+        run: |
+          flutter build ipa --release --no-codesign
+          mkdir -p ${{ env.BUILD_DIR }}/Payload
+          mv build/ios/ipa/*.app ${{ env.BUILD_DIR }}/Payload/
+          cd ${{ env.BUILD_DIR }} && zip -r app-${{ github.ref_name }}.ipa Payload
+        env:
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          CODE_SIGN_IDENTITY: ${{ secrets.CODE_SIGN_IDENTITY }}
+
+      # Web 构建
+      - name: Build Web
+        if: contains(matrix.platforms, 'web')
+        run: |
+          flutter build web --release
+          mv build/web ${{ env.BUILD_DIR }}/web-${{ github.ref_name }}
+
+      # Windows 构建
+      - name: Build Windows
+        if: contains(matrix.platforms, 'windows')
+        run: |
+          flutter build windows --release
+          7z a ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-windows.zip build/windows/runner/Release
+
+      # macOS 构建
+      - name: Build macOS
+        if: contains(matrix.platforms, 'macos')
+        run: |
+          flutter build macos --release
+          cd build/macos/Build/Products/Release
+          zip -r ${{ github.workspace }}/${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-macos.zip *.app
+
+      # Linux 构建
+      - name: Build Linux
+        if: contains(matrix.platforms, 'linux')
+        run: |
+          flutter build linux --release
+          tar -czvf ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-linux.tar.gz build/linux/x64/release/bundle
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: ${{ env.BUILD_DIR }}/*
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate Release Notes
+        run: |
+          echo "## 版本 ${{ github.ref_name }}" >> release_notes.md
+          echo "构建时间: $(date +'%Y-%m-%d %H:%M:%S')" >> release_notes.md
+          echo "包含平台:" >> release_notes.md
+          ls artifacts/**/* | sed 's/^/- /' >> release_notes.md
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          name: Release ${{ github.ref_name }}
+          body_file: release_notes.md
+          files: |
+            artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
