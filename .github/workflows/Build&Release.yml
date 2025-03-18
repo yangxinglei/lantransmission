@@ -76,6 +76,11 @@ jobs:
           zip -r ${{ github.workspace }}/${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-macos.zip *.app
 
       # Linux 构建
+      - name: Install Linux Dependencies
+        if: contains(matrix.platforms, 'linux')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev
       - name: Build Linux
         if: contains(matrix.platforms, 'linux')
         run: |
