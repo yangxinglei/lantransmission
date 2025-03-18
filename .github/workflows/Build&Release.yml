@@ -19,7 +19,9 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            platforms: android, web, linux, windows
+            platforms: linux
+          - os: windows-latest
+            platforms: windows,android
           - os: macos-latest
             platforms: ios, macos
     steps:
@@ -50,20 +52,13 @@ jobs:
       - name: Build iOS IPA
         if: contains(matrix.platforms, 'ios')
         run: |
-          flutter build ipa --release --no-codesign
+          flutter build ios --release --no-codesign
           mkdir -p ${{ env.BUILD_DIR }}/Payload
           mv build/ios/ipa/*.app ${{ env.BUILD_DIR }}/Payload/
           cd ${{ env.BUILD_DIR }} && zip -r app-${{ github.ref_name }}.ipa Payload
         env:
           TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
           CODE_SIGN_IDENTITY: ${{ secrets.CODE_SIGN_IDENTITY }}
-
-      # Web 构建
-      - name: Build Web
-        if: contains(matrix.platforms, 'web')
-        run: |
-          flutter build web --release
-          mv build/web ${{ env.BUILD_DIR }}/web-${{ github.ref_name }}
 
       # Windows 构建
       - name: Build Windows
