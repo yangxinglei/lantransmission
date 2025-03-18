@@ -64,14 +64,14 @@ jobs:
       - name: Build Windows
         if: contains(matrix.platforms, 'windows')
         run: |
-          flutter build windows --release
+          flutter build windows 
           7z a ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-windows.zip build/windows/runner/Release
 
       # macOS 构建
       - name: Build macOS
         if: contains(matrix.platforms, 'macos')
         run: |
-          flutter build macos --release
+          flutter build macos 
           cd build/macos/Build/Products/Release
           zip -r ${{ github.workspace }}/${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-macos.zip *.app
 
@@ -79,7 +79,7 @@ jobs:
       - name: Build Linux
         if: contains(matrix.platforms, 'linux')
         run: |
-          flutter build linux --release
+          flutter build linux 
           tar -czvf ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-linux.tar.gz build/linux/x64/release/bundle
 
       - name: Upload Artifacts
