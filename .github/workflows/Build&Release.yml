@@ -54,7 +54,7 @@ jobs:
         run: |
           flutter build ios --release --no-codesign
           mkdir -p ${{ env.BUILD_DIR }}/Payload
-          mv build/ios/ipa/*.app ${{ env.BUILD_DIR }}/Payload/
+          mv build/ios/iphoneos/Runner.app ${{ env.BUILD_DIR }}/Payload/
           cd ${{ env.BUILD_DIR }} && zip -r app-${{ github.ref_name }}.ipa Payload
         env:
           TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
