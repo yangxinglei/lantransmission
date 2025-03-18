@@ -41,8 +41,15 @@ jobs:
         run: flutter pub get
 
       # Android 构建
+      - name: Setup Java for Android Build
+        if: contains(matrix.platforms, 'android')
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin' # 使用 Eclipse Temurin JDK
+          java-version: '17' 
       - name: Build Android APK
         if: contains(matrix.platforms, 'android')
+        
         run: |
           flutter build apk --release
           mkdir -p ${{ env.BUILD_DIR }}
@@ -85,7 +92,15 @@ jobs:
         if: contains(matrix.platforms, 'linux')
         run: |
           flutter build linux 
-          tar -czvf ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-linux.tar.gz build/linux/x64/release/bundle
+          mkdir -p ${{ env.BUILD_DIR }}  # 确保目标目录存在
+          echo "BUILD_DIR路径：${{ env.BUILD_DIR }}"
+          ls -ld "${{ env.BUILD_DIR }}"
+          
+          # 确认构建输出目录存在
+          echo "构建输出目录内容："
+          ls -l build/linux/x64/release/bundle
+          tar -czvf ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-linux.tar.gz -C build/linux/x64/release/bundle .
+
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
