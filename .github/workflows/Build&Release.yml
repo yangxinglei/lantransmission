@@ -3,12 +3,12 @@ name: Flutter Multi-Platform Release
 on:
   push:
     tags:
-      - 'v*' # 通过语义化版本标签触发（如 v1.2.3）
-  workflow_dispatch: # 允许手动触发
+      - 'v*'
+  workflow_dispatch:
 
 env:
   FLUTTER_VERSION: '3.29.0'
-  BUILD_DIR: 'build_artifacts'
+  BUILD_DIR: ${{ github.workspace }}/build_artifacts  # 改为绝对路径
 
 jobs:
   build:
@@ -20,87 +20,140 @@ jobs:
         include:
           - os: ubuntu-latest
             platforms: linux
+            cache-suffix: linux
           - os: windows-latest
             platforms: windows,android
+            cache-suffix: win
           - os: macos-latest
-            platforms: ios, macos
+            platforms: ios,macos
+            cache-suffix: mac
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # 全局缓存层 --------------------------------------------------
+      - name: Cache Flutter SDK
+        uses: actions/cache@v3
+        id: flutter-cache
+        with:
+          path: ${{ github.workspace }}/.flutter-sdk
+          key: flutter-${{ matrix.cache-suffix }}-${{ env.FLUTTER_VERSION }}
+
+      - name: Cache Pub Dependencies
+        uses: actions/cache@v3
+        id: pub-cache
+        with:
+          path: |
+            ~/.pub-cache
+            ${{ github.workspace }}/.flutter-sdk/.pub-cache
+          key: pub-${{ hashFiles('pubspec.lock') }}
+
+      # 平台专属缓存层 -----------------------------------------------
+      # Linux 专属缓存
+      - name: Cache APT Packages
+        if: contains(matrix.platforms, 'linux')
+        uses: actions/cache@v3
+        id: apt-cache
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ matrix.cache-suffix }}-${{ hashFiles('**/apt-deps.txt') }}
+
+      # Android 专属缓存
+      - name: Cache Gradle
+        if: contains(matrix.platforms, 'android')
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ matrix.cache-suffix }}-${{ hashFiles('**/gradle-wrapper.properties') }}
+
+      # iOS 专属缓存
+      - name: Cache CocoaPods
+        if: contains(matrix.platforms, 'ios')
+        uses: actions/cache@v3
+        with:
+          path: |
+            ios/Pods
+            ~/.cocoapods
+          key: pods-${{ matrix.cache-suffix }}-${{ hashFiles('**/Podfile.lock') }}
+
+      # 环境设置层 --------------------------------------------------
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
-          cache: true
-          cache-key: flutter-${{ env.FLUTTER_VERSION }}
-          platforms: ${{ join(matrix.platforms, ',') }}
+          cache: ${{ steps.flutter-cache.outputs.cache-hit != 'true' }}
+          cache-key: flutter-${{ matrix.cache-suffix }}-${{ env.FLUTTER_VERSION }}
+          cache-path: ${{ github.workspace }}/.flutter-sdk
 
-      - name: Install Dependencies
-        run: flutter pub get
-
-      # Android 构建
-      - name: Setup Java for Android Build
-        if: contains(matrix.platforms, 'android')
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin' # 使用 Eclipse Temurin JDK
-          java-version: '17' 
-      - name: Build Android APK
-        if: contains(matrix.platforms, 'android')
-        
-        run: |
-          flutter build apk --release
-          mkdir -p ${{ env.BUILD_DIR }}
-          mv build/app/outputs/flutter-apk/app-release.apk ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}.apk
-
-      # iOS 构建（需签名配置）
-      - name: Build iOS IPA
-        if: contains(matrix.platforms, 'ios')
-        run: |
-          flutter build ios --release --no-codesign
-          mkdir -p ${{ env.BUILD_DIR }}/Payload
-          mv build/ios/iphoneos/Runner.app ${{ env.BUILD_DIR }}/Payload/
-          cd ${{ env.BUILD_DIR }} && zip -r app-${{ github.ref_name }}.ipa Payload
-        env:
-          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
-          CODE_SIGN_IDENTITY: ${{ secrets.CODE_SIGN_IDENTITY }}
-
-      # Windows 构建
-      - name: Build Windows
-        if: contains(matrix.platforms, 'windows')
-        run: |
-          flutter build windows 
-          7z a ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-windows.zip build/windows/runner/Release
-
-      # macOS 构建
-      - name: Build macOS
-        if: contains(matrix.platforms, 'macos')
-        run: |
-          flutter build macos 
-          cd build/macos/Build/Products/Release
-          zip -r ${{ github.workspace }}/${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-macos.zip *.app
-
-      # Linux 构建
+      # 依赖安装层 --------------------------------------------------
       - name: Install Linux Dependencies
         if: contains(matrix.platforms, 'linux')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev
-      - name: Build Linux
-        if: contains(matrix.platforms, 'linux')
-        run: |
-          flutter build linux 
-          mkdir -p ${{ env.BUILD_DIR }}  # 确保目标目录存在
-          echo "BUILD_DIR路径：${{ env.BUILD_DIR }}"
-          ls -ld "${{ env.BUILD_DIR }}"
-          
-          # 确认构建输出目录存在
-          echo "构建输出目录内容："
-          ls -l build/linux/x64/release/bundle
-          tar -czvf ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-linux.tar.gz -C build/linux/x64/release/bundle .
+          sudo apt-get install -y --no-install-recommends libgtk-3-dev
+        env:
+          DEBIAN_FRONTEND: noninteractive
 
+      - name: Setup Java for Android
+        if: contains(matrix.platforms, 'android')
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 构建层 ------------------------------------------------------
+      - name: Build All Platforms
+        shell: bash
+        run: |
+          # 公共前置操作
+          flutter pub get
+          mkdir -p "${{ env.BUILD_DIR }}"
+
+          # Android 构建
+          if [[ "${{ matrix.platforms }}" == *android* ]]; then
+            flutter build apk --release
+            mv build/app/outputs/flutter-apk/app-release.apk ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}.apk
+          fi
+
+          # iOS 构建
+          if [[ "${{ matrix.platforms }}" == *ios* ]]; then
+            flutter build ios --release --no-codesign
+            mkdir -p ${{ env.BUILD_DIR }}/Payload
+            mv build/ios/iphoneos/Runner.app ${{ env.BUILD_DIR }}/Payload/
+            cd ${{ env.BUILD_DIR }} && zip -r app-${{ github.ref_name }}.ipa Payload
+          fi
+
+          # Windows 构建
+          if [[ "${{ matrix.platforms }}" == *windows* ]]; then
+            shell: cmd # 关键点：在 Windows 环境使用 cmd 执行
+            run: |
+              flutter build windows --release
+              
+              # 确认构建产物路径
+              dir /s build\windows\x64\runner\Release
+              
+              # 使用绝对路径压缩
+              "C:\Program Files\7-Zip\7z.exe" a 
+                -tzip 
+                "${{ env.BUILD_DIR }}\app-${{ github.ref_name }}-windows.zip" 
+                "build\windows\x64\runner\Release\*"
+
+          # macOS 构建
+          if [[ "${{ matrix.platforms }}" == *macos* ]]; then
+            flutter build macos
+            cd build/macos/Build/Products/Release
+            zip -r ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-macos.zip *.app
+          fi
+
+          # Linux 构建
+          if [[ "${{ matrix.platforms }}" == *linux* ]]; then
+            flutter build linux
+            tar -czvf ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-linux.tar.gz -C build/linux/x64/release/bundle .
+          fi
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -120,10 +173,10 @@ jobs:
 
       - name: Generate Release Notes
         run: |
-          echo "## 版本 ${{ github.ref_name }}" >> release_notes.md
-          echo "构建时间: $(date +'%Y-%m-%d %H:%M:%S')" >> release_notes.md
-          echo "包含平台:" >> release_notes.md
-          ls artifacts/**/* | sed 's/^/- /' >> release_notes.md
+          echo "# Release ${{ github.ref_name }}" > release_notes.md
+          echo "**Build Date:** $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> release_notes.md
+          echo "## Artifacts" >> release_notes.md
+          find artifacts -type f | sed 's/^/- `/' | sed 's/$/`/' >> release_notes.md
 
       - name: Publish Release
         uses: softprops/action-gh-release@v1
