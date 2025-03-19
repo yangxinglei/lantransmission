@@ -121,38 +121,35 @@ jobs:
 
           # iOS 构建
           if [[ "${{ matrix.platforms }}" == *ios* ]]; then
+            echo "🛠 Building iOS..."
             flutter build ios --release --no-codesign
-            mkdir -p ${{ env.BUILD_DIR }}/Payload
-            mv build/ios/iphoneos/Runner.app ${{ env.BUILD_DIR }}/Payload/
-            cd ${{ env.BUILD_DIR }} && zip -r app-${{ github.ref_name }}.ipa Payload
+            mkdir -p "${{ env.BUILD_DIR }}/Payload"
+            mv build/ios/iphoneos/Runner.app "${{ env.BUILD_DIR }}/Payload/"
+            (cd "${{ env.BUILD_DIR }}" && zip -r "app-${{ github.ref_name }}.ipa" Payload)
           fi
-
+      
           # Windows 构建
           if [[ "${{ matrix.platforms }}" == *windows* ]]; then
-            shell: cmd # 关键点：在 Windows 环境使用 cmd 执行
-            run: |
-              flutter build windows --release
-              
-              # 确认构建产物路径
-              dir /s build\windows\x64\runner\Release
-              
-              # 使用绝对路径压缩
-              "C:\Program Files\7-Zip\7z.exe" a 
-                -tzip 
-                "${{ env.BUILD_DIR }}\app-${{ github.ref_name }}-windows.zip" 
-                "build\windows\x64\runner\Release\*"
-
+            echo "🛠 Building Windows..."
+            flutter build windows
+            7z a "${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-windows.zip" \
+              "build/windows/x64/runner/Release/*"
+          fi
+      
           # macOS 构建
           if [[ "${{ matrix.platforms }}" == *macos* ]]; then
+            echo "🛠 Building macOS..."
             flutter build macos
-            cd build/macos/Build/Products/Release
-            zip -r ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-macos.zip *.app
+            (cd build/macos/Build/Products/Release && \
+              zip -r "${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-macos.zip" *.app)
           fi
-
+      
           # Linux 构建
           if [[ "${{ matrix.platforms }}" == *linux* ]]; then
+            echo "🛠 Building Linux..."
             flutter build linux
-            tar -czvf ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-linux.tar.gz -C build/linux/x64/release/bundle .
+            tar -czvf "${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-linux.tar.gz" \
+              -C build/linux/x64/release/bundle .
           fi
 
       - name: Upload Artifacts
