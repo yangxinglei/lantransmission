@@ -116,7 +116,14 @@ jobs:
           # Android 构建
           if [[ "${{ matrix.platforms }}" == *android* ]]; then
             flutter build apk --release
-            mv build/app/outputs/flutter-apk/app-release.apk ${{ env.BUILD_DIR }}/app-${{ github.ref_name }}.apk
+            # 验证构建输出
+            echo "构建输出目录内容："
+            ls -l build/app/outputs/flutter-apk
+            
+            mv build/app/outputs/flutter-apk/app-release.apk "${{ github.workspace }}/build_artifacts/app-${{ github.ref_name }}.apk"
+            # 验证移动结果
+            echo "目标目录内容："
+            ls -l "${{ env.BUILD_DIR }}"
           fi
 
           # iOS 构建
