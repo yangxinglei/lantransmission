@@ -1,0 +1,202 @@
+name: Flutter Multi-Platform Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.29.0'
+  BUILD_DIR: ${{ github.workspace }}/build_artifacts  # 改为绝对路径
+
+jobs:
+  build:
+    name: Cross-Platform Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platforms: linux
+            cache-suffix: linux
+          - os: windows-latest
+            platforms: windows,android
+            cache-suffix: win
+          - os: macos-latest
+            platforms: ios,macos
+            cache-suffix: mac
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 全局缓存层 --------------------------------------------------
+      - name: Cache Flutter SDK
+        uses: actions/cache@v3
+        id: flutter-cache
+        with:
+          path: ${{ github.workspace }}/.flutter-sdk
+          key: flutter-${{ matrix.cache-suffix }}-${{ env.FLUTTER_VERSION }}
+
+      - name: Cache Pub Dependencies
+        uses: actions/cache@v3
+        id: pub-cache
+        with:
+          path: |
+            ~/.pub-cache
+            ${{ github.workspace }}/.flutter-sdk/.pub-cache
+          key: pub-${{ hashFiles('pubspec.lock') }}
+
+      # 平台专属缓存层 -----------------------------------------------
+      # Linux 专属缓存
+      - name: Cache APT Packages
+        if: contains(matrix.platforms, 'linux')
+        uses: actions/cache@v3
+        id: apt-cache
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ matrix.cache-suffix }}-${{ hashFiles('**/apt-deps.txt') }}
+
+      # Android 专属缓存
+      - name: Cache Gradle
+        if: contains(matrix.platforms, 'android')
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ matrix.cache-suffix }}-${{ hashFiles('**/gradle-wrapper.properties') }}
+
+      # iOS 专属缓存
+      - name: Cache CocoaPods
+        if: contains(matrix.platforms, 'ios')
+        uses: actions/cache@v3
+        with:
+          path: |
+            ios/Pods
+            ~/.cocoapods
+          key: pods-${{ matrix.cache-suffix }}-${{ hashFiles('**/Podfile.lock') }}
+
+      # 环境设置层 --------------------------------------------------
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: ${{ steps.flutter-cache.outputs.cache-hit != 'true' }}
+          cache-key: flutter-${{ matrix.cache-suffix }}-${{ env.FLUTTER_VERSION }}
+          cache-path: ${{ github.workspace }}/.flutter-sdk
+
+      # 依赖安装层 --------------------------------------------------
+      - name: Install Linux Dependencies
+        if: contains(matrix.platforms, 'linux')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgtk-3-dev
+        env:
+          DEBIAN_FRONTEND: noninteractive
+
+      - name: Setup Java for Android
+        if: contains(matrix.platforms, 'android')
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 构建层 ------------------------------------------------------
+      - name: Build All Platforms
+        shell: bash
+        run: |
+          # 公共前置操作
+          flutter pub get
+          mkdir -p "${{ env.BUILD_DIR }}"
+
+          # Android 构建
+          if [[ "${{ matrix.platforms }}" == *android* ]]; then
+            flutter build apk --release
+            # 验证构建输出
+            echo "构建输出目录内容："
+            ls -l build/app/outputs/flutter-apk
+            
+            mv build/app/outputs/flutter-apk/app-release.apk "${{ github.workspace }}/build_artifacts/app-${{ github.ref_name }}.apk"
+            # 验证移动结果
+            echo "目标目录内容："
+            ls -l "${{ env.BUILD_DIR }}"
+          fi
+
+          # iOS 构建
+          if [[ "${{ matrix.platforms }}" == *ios* ]]; then
+            echo "🛠 Building iOS..."
+            flutter build ios --release --no-codesign
+            mkdir -p "${{ env.BUILD_DIR }}/Payload"
+            mv build/ios/iphoneos/Runner.app "${{ env.BUILD_DIR }}/Payload/"
+            (cd "${{ env.BUILD_DIR }}" && zip -r "app-${{ github.ref_name }}.ipa" Payload)
+          fi
+      
+          # Windows 构建
+          if [[ "${{ matrix.platforms }}" == *windows* ]]; then
+            echo "🛠 Building Windows..."
+            flutter build windows
+            7z a "${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-windows.zip" \
+              "build/windows/x64/runner/Release/*"
+          fi
+      
+          # macOS 构建
+          if [[ "${{ matrix.platforms }}" == *macos* ]]; then
+            echo "🛠 Building macOS..."
+            flutter build macos
+            (cd build/macos/Build/Products/Release && \
+              zip -r "${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-macos.zip" *.app)
+          fi
+      
+          # Linux 构建
+          if [[ "${{ matrix.platforms }}" == *linux* ]]; then
+            echo "🛠 Building Linux..."
+            flutter build linux
+            tar -czvf "${{ env.BUILD_DIR }}/app-${{ github.ref_name }}-linux.tar.gz" \
+              -C build/linux/x64/release/bundle .
+          fi
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: ${{ env.BUILD_DIR }}/*
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate Release Notes
+        run: |
+          echo "# Release ${{ github.ref_name }}" > release_notes.md
+          echo "**Build Date:** $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> release_notes.md
+          echo "## Artifacts" >> release_notes.md
+          find artifacts -type f | sed 's/^/- `/' | sed 's/$/`/' >> release_notes.md
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v1
+        continue-on-error: false
+        timeout-minutes: 5
+        with:
+          tag_name: ${{ github.ref_name }}
+          target_commitish: ${{ github.sha }}  # 明确指定关联 commit
+          name: "🎉 Release ${{ github.ref_name }}"
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref, 'beta') }}
+          discussion_category_name: "Announcements"
+          generate_release_notes: true        # 启用 GitHub 自动生成说明
+          overwrite: true
+          files: |
+            artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_RELEASE_TOKEN || secrets.GITHUB_TOKEN }} # 可配置专用 Token
