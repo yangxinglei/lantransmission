@@ -1,9 +1,6 @@
 name: Flutter Multi-Platform Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 env:
@@ -165,38 +162,3 @@ jobs:
           name: build-${{ matrix.os }}
           path: ${{ env.BUILD_DIR }}/*
 
-  release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Generate Release Notes
-        run: |
-          echo "# Release ${{ github.ref_name }}" > release_notes.md
-          echo "**Build Date:** $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> release_notes.md
-          echo "## Artifacts" >> release_notes.md
-          find artifacts -type f | sed 's/^/- `/' | sed 's/$/`/' >> release_notes.md
-
-      - name: Publish Release
-        uses: softprops/action-gh-release@v1
-        continue-on-error: false
-        timeout-minutes: 5
-        with:
-          tag_name: ${{ github.ref_name }}
-          target_commitish: ${{ github.sha }}  # 明确指定关联 commit
-          name: "🎉 Release ${{ github.ref_name }}"
-          body_path: release_notes.md
-          draft: false
-          prerelease: ${{ contains(github.ref, 'beta') }}
-          discussion_category_name: "Announcements"
-          generate_release_notes: true        # 启用 GitHub 自动生成说明
-          overwrite: true
-          files: |
-            artifacts/**/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_RELEASE_TOKEN || secrets.GITHUB_TOKEN }} # 可配置专用 Token
