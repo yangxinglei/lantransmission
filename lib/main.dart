@@ -10,8 +10,12 @@ import 'screens/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SettingsManager().loadSettings(); // 预加载设置
-  await  requestManageStoragePermission();
-  await Permission.storage.request().isGranted;
+  if (Platform.isAndroid || Platform.isIOS) {
+  // 调用权限请求
+    await  requestManageStoragePermission();
+    await Permission.storage.request().isGranted;
+}
+
   runApp(
     MultiProvider(
       providers: [
@@ -78,12 +82,47 @@ class MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '局域网传输',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color.fromARGB(255, 41, 236, 226),
-        ),
-      ),
+      debugShowCheckedModeBanner: false,
+      theme: lightTheme, // 浅色模式
+      darkTheme: darkTheme, // 深色模式
+      themeMode: ThemeMode.system, // 跟随系统主题
       home: const HomeScreen(),
     );
   }
 }
+
+// 🎨 浅色主题
+ThemeData lightTheme = ThemeData(
+  colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue), // 主题色
+  brightness: Brightness.light,
+  textTheme: TextTheme(
+    titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+    bodyMedium: TextStyle(fontSize: 16),
+  ),
+  appBarTheme: AppBarTheme(
+    backgroundColor: Colors.blue, // AppBar 背景色
+    titleTextStyle: TextStyle(color: Colors.white, fontSize: 20),
+  ),
+  elevatedButtonTheme: ElevatedButtonThemeData(
+    style: ElevatedButton.styleFrom(
+      backgroundColor: Colors.blue, // 按钮颜色
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+  ),
+);
+
+// 🌙 深色主题
+ThemeData darkTheme = ThemeData(
+  colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
+  brightness: Brightness.dark,
+  appBarTheme: AppBarTheme(
+    backgroundColor: Colors.black, // AppBar 背景色
+    titleTextStyle: TextStyle(color: Colors.white, fontSize: 20),
+  ),
+  elevatedButtonTheme: ElevatedButtonThemeData(
+    style: ElevatedButton.styleFrom(
+      backgroundColor: Colors.blueAccent, // 按钮颜色
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+  ),
+);
