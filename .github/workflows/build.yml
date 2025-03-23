@@ -1,4 +1,4 @@
-name: Flutter Multi-Platform Release
+name:Build release pack
 
 on:
   workflow_dispatch:
