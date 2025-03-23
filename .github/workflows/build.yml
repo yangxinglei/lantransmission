@@ -99,7 +99,7 @@ jobs:
       - name: Install Linux Dependencies
         if: contains(matrix.platforms, 'linux')
         run: |
-          mkdir -p "${{ env.BUILD_DIR }}"
+
           sudo apt-get update
           sudo apt-get install -y clang cmake libgtk-3-dev ninja-build libayatana-appindicator3-dev
         env:
@@ -111,15 +111,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: ${{ env.RUST_VERSION }}
-
-      - name: Check rust-toolchain.toml
-        working-directory: ${{ env.APK_BUILD_DIR }}
-        run: rustup show
+      
 
       # 构建层 ------------------------------------------------------
       - name: Build All Platforms
@@ -127,7 +119,16 @@ jobs:
         run: |
           # 公共前置操作
           flutter pub get
-          
+          mkdir -p "${{ env.BUILD_DIR }}"
+          - name: Install Rust
+            uses: actions-rs/toolchain@v1
+            with:
+              toolchain: stable
+              override: ${{ env.RUST_VERSION }}
+    
+          - name: Check rust-toolchain.toml
+            working-directory: ${{ env.APK_BUILD_DIR }}
+            run: rustup show
           # Android 构建
           if [[ "${{ matrix.platforms }}" == *android* ]]; then
             - name: Copy files to env.APK_BUILD_DIR
