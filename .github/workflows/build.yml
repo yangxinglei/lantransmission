@@ -117,7 +117,7 @@ jobs:
           override: ${{ env.RUST_VERSION }}
 
       - name: Check rust-toolchain.toml
-        working-directory: ${{ env.APK_BUILD_DIR }}/app
+        working-directory: ${{ env.APK_BUILD_DIR }}
         run: rustup show
 
       # 构建层 ------------------------------------------------------
@@ -147,7 +147,7 @@ jobs:
               run: mkdir secrets && echo $ENCODED_STRING | base64 -di > secrets/android-keystore.jks
             
             - name: Build APK
-              working-directory: ${{ env.APK_BUILD_DIR }}/app
+              working-directory: ${{ env.APK_BUILD_DIR }}
               run: flutter build apk --split-per-abi
       
             - name: Upload APK
@@ -155,9 +155,9 @@ jobs:
               with:
                 name: apk-result
                 path: |
-                  ${{ env.APK_BUILD_DIR }}/app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
-                  ${{ env.APK_BUILD_DIR }}/app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-                  ${{ env.APK_BUILD_DIR }}/app/build/app/outputs/flutter-apk/app-x86_64-release.apk
+                  ${{ env.APK_BUILD_DIR }}/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+                  ${{ env.APK_BUILD_DIR }}/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+                  ${{ env.APK_BUILD_DIR }}/build/app/outputs/flutter-apk/app-x86_64-release.apk
 
           fi
 
@@ -193,7 +193,7 @@ jobs:
           if [[ "${{ matrix.platforms }}" == *linux* ]]; then
             echo "🛠 Building Linux..."
             - name: Compile linux
-              working-directory: app
+              working-directory: lib
               run: flutter build linux
       
             - name: Create tar.gz archive
@@ -214,7 +214,7 @@ jobs:
               run: echo 'export PATH="$PATH:$HOME/.pub-cache/bin"' >> ~/.bashrc
       
             - name: Build deb package
-              working-directory: app
+              working-directory: lib
               run: flutter_distributor package --platform linux --targets deb
       
             - name: Find deb file
